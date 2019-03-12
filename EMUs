@@ -1,0 +1,51 @@
+The sizes, in EMUs (English Metric Unit -- read this for a good explanation), are set in the Extents (the Cx and Cy). In order to get a pic into a DocX I usually do it like so:
+
+Get the image's dimensions and resolution
+Compute the image's width in EMUs: wEmu = imgWidthPixels / imgHorizontalDpi * emuPerInch
+Compute the image's height in EMUs: hEmu = imgHeightPixels / imgVerticalDpi * emuPerInch
+Compute the max page width in EMUs (I've found that if the image is too wide, it won't show)
+If the image's width in EMUs is greater than the max page width's, I scale the image's width and height so that the width of image is equal to that of the page (when I say page, I'm referring to the "usable" page, that is minus the margins):
+
+var ratio = hEmu / wEmu;
+wEmu = maxPageWidthEmu;
+hEmu = wEmu * ratio;
+
+I then use the width as the value of Cx and height as the value of Cy, both in the DW.Extent and in the A.Extents (of the A.Transform2D of the PIC.ShapeProperties).
+
+Note that the emuPerInch value is 914400.
+I have this running (in a service) but I don't have the code with me right now.
+
+UPDATE
+
+This is the code I use:
+
+var img = new BitmapImage(new Uri(fileName, UriKind.RelativeOrAbsolute));
+var widthPx = img.PixelWidth;
+var heightPx = img.PixelHeight;
+var horzRezDpi = img.DpiX;
+var vertRezDpi = img.DpiY;
+const int emusPerInch = 914400;
+const int emusPerCm = 360000;
+var widthEmus = (long)(widthPx / horzRezDpi * emusPerInch);
+var heightEmus = (long)(heightPx / vertRezDpi * emusPerInch);
+var maxWidthEmus = (long)(maxWidthCm * emusPerCm);
+if (widthEmus > maxWidthEmus) {
+  var ratio = (heightEmus * 1.0m) / widthEmus;
+  widthEmus = maxWidthEmus;
+  heightEmus = (long)(widthEmus * ratio);
+}
+In my case, my page's measures are in cm, hence the emusPerCm you see above.
+
+UPDATE 2 (to answer @andw)
+
+To have the file locked during the minimum possible time, open it with a FileStream and pass the resulting stream to the StreamSource property of the BitmapImage:
+
+var img = new BitmapImage();
+using (var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read)) {
+    img.BeginInit();
+    img.StreamSource = file;
+    img.EndInit();
+}
+// The file is now unlocked
+var widthPx = img.PixelWidth;
+...
